@@ -1,0 +1,38 @@
+"""Database configuration and session management."""
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+from app.config import settings
+
+# Create engine
+engine = create_engine(
+    settings.database_url,
+    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
+    echo=settings.debug,
+)
+
+# Create session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+class Base(DeclarativeBase):
+    """Base class for all database models."""
+
+    pass
+
+
+def get_db():
+    """Get database session for dependency injection."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db():
+    """Initialize database tables."""
+    from app.models import city, station, airport, route  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)
