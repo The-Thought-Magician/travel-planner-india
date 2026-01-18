@@ -21,6 +21,7 @@ numpy==2.2.0
 
 # Routing/Graph
 networkx==3.4.2
+geopy==2.4.1
 
 # HTTP Client
 httpx==0.28.1
