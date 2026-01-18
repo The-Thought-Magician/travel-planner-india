@@ -1,0 +1,21 @@
+curl 'https://www.ixigo.com/outlook/v1/onward/ranged?departureDate=20012026&destination=IDR&fareClass=e&origin=JAI&paxCombinationType=100&refundTypes=REFUNDABLE%2CNON_REFUNDABLE%2CPARTIALLY_REFUNDABLE' \
+  -H 'accept: */*' \
+  -H 'accept-language: en-US,en;q=0.9' \
+  -H $'apikey: ixiweb\u00212$' \
+  -H 'appversion: 2' \
+  -H 'clientid: ixiweb' \
+  -H 'content-type: application/json; charset=UTF-8' \
+  -b 'session_id=ot6w0wy1rgm; WZRK_G=306997f706984233bc15b5a7277c27a4; ixiUID=2c4aef83006645eb8997; ixiSrc=/0q+iQ1cJiJpqErZtlxo5pjVCVAzg/6LSdaZesp6BWBqw7j1RVhTx+w/UQDi+PsZvpjeWreAn7IrwoZ9Trr2kA==; ixigoSrc=2c4aef83006645eb8997|DIR:19012026|DIR:19012026|DIR:19012026; WZRK_S_R5Z-849-WZ4Z=%7B%22p%22%3A1%2C%22s%22%3A1768779371%2C%22t%22%3A1768779370%7D; _gcl_gs=2.1.k1$i1768779369$u42707709; _gcl_au=1.1.429746214.1768779370; _gcl_aw=GCL.1768779371.Cj0KCQiAprLLBhCMARIsAEDhdPc8AhAlB5zkkWIrizWqmJ1PvfbHdzqNzz8ylmJa8HEfM1Iu_1_puyQaAh6mEALw_wcB; _ga_LJX9T6MDKX=GS2.1.s1768779370$o1$g0$t1768779370$j60$l0$h477122304; _clck=bqkqo3%5E2%5Eg2t%5E0%5E2209; _clsk=1n1hsll%5E1768779372624%5E1%5E1%5Ea.clarity.ms%2Fcollect; __cf_bm=YPo3UE1HAIDexsEkQLVz1JD2JFpVI.1mXJ4L0ljAgis-1768779374-1.0.1.1-ULU7D1.d0P7l8SgHNxW7GZznIp_0vXOHBIc2GKNMC6Qhu_4BxcR9_B_b7R6NpT6y2Z1yocovIRk2LAoQPgrz5_9P_frIVhi7RduQyxaUJc8; _ga=GA1.2.1932930247.1768779371; _gid=GA1.2.1501967430.1768779385; _gac_UA-949229-1=1.1768779385.Cj0KCQiAprLLBhCMARIsAEDhdPc8AhAlB5zkkWIrizWqmJ1PvfbHdzqNzz8ylmJa8HEfM1Iu_1_puyQaAh6mEALw_wcB; _gat_UA-949229-1=1' \
+  -H 'deviceid: 2c4aef83006645eb8997' \
+  -H 'ixisrc: ixiweb' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://www.ixigo.com/search/result/flight?from=JAI&to=IDR&date=20012026&adults=2&children=0&infants=0&class=e&source=Search+Form&utm_source=Google_Search&utm_medium=paid_search_google' \
+  -H 'sec-ch-ua: "Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?1' \
+  -H 'sec-ch-ua-platform: "Android"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-origin' \
+  -H 'user-agent: Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36' \
+  -H 'uuid: 2c4aef83006645eb8997' \
+  -H 'x-request-webappversion: 2.40.0'
