@@ -9,14 +9,14 @@ from app.services.journey_planner import JourneyPlanner
 router = APIRouter()
 
 
-@router.get("/search", response_model=SearchResponse)
-async def search_journeys(
+@router.get("/search")
+def search_journeys(
     from_location: str = Query(..., description="Origin city name"),
     to_location: str = Query(..., description="Destination city name"),
     travel_date: str = Query(..., description="Travel date (YYYY-MM-DD)"),
     preference: str = Query("balanced", description="cheapest, fastest, most_reliable, or balanced"),
     max_transfers: int = Query(3, ge=1, le=5, description="Maximum transfers"),
-) -> SearchResponse:
+):
     """
     Search for multi-modal journey options.
 
@@ -40,24 +40,22 @@ async def search_journeys(
     planner = JourneyPlanner()
 
     try:
-        options = await planner.find_journeys(
+        journeys, metadata = planner.find_journeys(
             from_city=from_location,
             to_city=to_location,
             travel_date=travel_date_obj,
             preference=preference,
             max_transfers=max_transfers,
+            max_journeys=5,
         )
 
-        return SearchResponse(
-            from_location=from_location,
-            to_location=to_location,
-            travel_date=travel_date_obj,
-            options=options,
-            metadata={
-                "total_options": len(options),
-                "preference_used": preference,
-            },
-        )
+        return {
+            "from_location": from_location,
+            "to_location": to_location,
+            "travel_date": travel_date,
+            "journeys": journeys,
+            "metadata": metadata,
+        }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

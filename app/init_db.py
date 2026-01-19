@@ -1,7 +1,10 @@
 """Initialize database with seed data."""
 
-from app.database import init_db, SessionLocal
-from app.models import City, Station, Airport
+import math
+
+from app.database import init_db, SessionLocal, engine
+from app.models import City, Station, Airport, TrainRoute, FlightRoute, BusRoute
+from datetime import datetime, time
 
 
 def seed_cities() -> None:
@@ -43,7 +46,7 @@ def seed_cities() -> None:
         ("Dhanbad", "Jharkhand", None, 23.7957, 86.4304, True),
         ("Amritsar", "Punjab", "ATQ", 31.6340, 74.8723, True),
         ("Navi Mumbai", "Maharashtra", None, 19.0330, 73.0297, True),
-        ("Allahabad", "Uttar Pradesh", "IXD", 25.4358, 81.8806, True),
+        ("Prayagraj", "Uttar Pradesh", "IXD", 25.4358, 81.8806, True),
         ("Howrah", "West Bengal", None, 22.5958, 88.2636, True),
         ("Jabalpur", "Madhya Pradesh", "JLR", 23.1815, 79.9864, True),
         ("Gwalior", "Madhya Pradesh", "GWL", 26.2124, 78.1772, True),
@@ -62,10 +65,11 @@ def seed_cities() -> None:
         ("Aligarh", "Uttar Pradesh", None, 27.8803, 78.0777, True),
         ("Tiruppur", "Tamil Nadu", None, 11.1085, 77.3411, True),
         ("Gurgaon", "Haryana", None, 28.4594, 77.0266, True),
-        # Special case - Hampi (popular destination)
-        ("Hampi", "Karnataka", None, 15.3350, 76.4600, True),
-        # Nearby city to Hampi with transport
-        ("Hospet", "Karnataka", None, 15.2737, 76.3830, True),
+        ("Bhubaneswar", "Odisha", "BBI", 20.2961, 85.8245, True),
+        ("Kochi", "Kerala", "COK", 9.9312, 76.2673, True),
+        ("Coimbatore", "Tamil Nadu", "CJB", 11.0168, 76.9558, True),
+        ("Dehradun", "Uttarakhand", "DED", 30.3272, 78.0320, True),
+        ("Nasik", "Maharashtra", None, 19.9722, 73.7895, True),
     ]
 
     db = SessionLocal()
@@ -82,55 +86,82 @@ def seed_cities() -> None:
             )
             db.add(city)
     db.commit()
-    print(f"Seeded {len(cities_data)} cities")
+    print(f"✅ Seeded {len(cities_data)} cities")
 
 
 def seed_stations() -> None:
-    """Seed major railway stations."""
+    """Seed major railway stations with coordinates."""
     stations_data = [
-        ("HWH", "Howrah Junction", "West Bengal", "ER"),
-        ("NDLS", "New Delhi", "Delhi", "NR"),
-        ("MAS", "Chennai Central", "Tamil Nadu", "SR"),
-        ("CSMT", "Mumbai CST", "Maharashtra", "CR"),
-        ("SBC", "Bangalore City Junction", "Karnataka", "SWR"),
-        ("HYB", "Hyderabad Deccan", "Telangana", "SCR"),
-        ("KOAA", "Kolkata", "West Bengal", "ER"),
-        ("JP", "Jaipur", "Rajasthan", "NWR"),
-        ("LKO", "Lucknow", "Uttar Pradesh", "NR"),
-        ("PNBE", "Patna Junction", "Bihar", "ECR"),
-        ("BPL", "Bhopal Junction", "Madhya Pradesh", "WCR"),
-        ("AGC", "Agra Cantt", "Uttar Pradesh", "NCR"),
-        ("CNB", "Kanpur Central", "Uttar Pradesh", "NR"),
-        ("BBS", "Bhubaneswar", "Odisha", "ECoR"),
-        ("TVC", "Thiruvananthapuram", "Kerala", "SR"),
-        ("ADI", "Ahmedabad Junction", "Gujarat", "WR"),
-        ("PUNE", "Pune Junction", "Maharashtra", "CR"),
-        ("NGP", "Nagpur", "Maharashtra", "CR"),
-        ("ALL", "Allahabad Junction", "Uttar Pradesh", "NR"),
-        ("JAT", "Jammu Tawi", "Jammu & Kashmir", "NR"),
-        ("ASR", "Amritsar Junction", "Punjab", "NR"),
-        ("RNC", "Ranchi", "Jharkhand", "ECR"),
-        ("HPT", "Hospet Junction", "Karnataka", "SWR"),
-        ("UBL", "Hubballi Junction", "Karnataka", "SWR"),
-        ("CLT", "Kozhikode", "Kerala", "SR"),
-        ("ERS", "Ernakulam Junction", "Kerala", "SR"),
-        ("BZA", "Vijayawada Junction", "Andhra Pradesh", "SCR"),
-        ("SC", "Secunderabad Junction", "Telangana", "SCR"),
-        ("GHY", "Guwahati", "Assam", "NFR"),
+        ("HWH", "Howrah Junction", "West Bengal", "ER", 22.5833, 88.3417),
+        ("NDLS", "New Delhi", "Delhi", "NR", 28.6431, 77.2197),
+        ("MAS", "Chennai Central", "Tamil Nadu", "SR", 13.0821, 80.2750),
+        ("CSMT", "Mumbai CST", "Maharashtra", "CR", 18.9402, 72.8354),
+        ("SBC", "Bangalore City Junction", "Karnataka", "SWR", 12.9777, 77.5728),
+        ("HYB", "Hyderabad Deccan", "Telangana", "SCR", 17.3985, 78.4734),
+        ("KOAA", "Kolkata", "West Bengal", "ER", 22.5630, 88.3426),
+        ("JP", "Jaipur", "Rajasthan", "NWR", 26.9196, 75.7878),
+        ("LKO", "Lucknow", "Uttar Pradesh", "NR", 26.8467, 80.9462),
+        ("PNBE", "Patna Junction", "Bihar", "ECR", 25.6108, 85.1351),
+        ("BPL", "Bhopal Junction", "Madhya Pradesh", "WCR", 23.2441, 77.3960),
+        ("AGC", "Agra Cantt", "Uttar Pradesh", "NCR", 27.1581, 78.0041),
+        ("CNB", "Kanpur Central", "Uttar Pradesh", "NR", 26.4499, 80.3511),
+        ("BBS", "Bhubaneswar", "Odisha", "ECoR", 20.2926, 85.8110),
+        ("TVC", "Thiruvananthapuram", "Kerala", "SR", 8.4821, 76.9201),
+        ("ADI", "Ahmedabad Junction", "Gujarat", "WR", 23.0305, 72.5800),
+        ("PUNE", "Pune Junction", "Maharashtra", "CR", 18.5288, 73.8749),
+        ("NGP", "Nagpur", "Maharashtra", "CR", 21.1491, 79.0807),
+        ("ALL", "Prayagraj Junction", "Uttar Pradesh", "NR", 25.4358, 81.8806),
+        ("JAT", "Jammu Tawi", "Jammu & Kashmir", "NR", 32.7063, 74.8643),
+        ("ASR", "Amritsar Junction", "Punjab", "NR", 31.6256, 74.8721),
+        ("RNC", "Ranchi", "Jharkhand", "ECR", 23.3567, 85.3339),
+        ("HPT", "Hospet Junction", "Karnataka", "SWR", 15.2784, 76.4033),
+        ("UBL", "Hubballi Junction", "Karnataka", "SWR", 15.3647, 75.1240),
+        ("CLT", "Kozhikode", "Kerala", "SR", 11.2479, 75.7803),
+        ("ERS", "Ernakulam Junction", "Kerala", "SR", 9.9694, 76.3017),
+        ("BZA", "Vijayawada Junction", "Andhra Pradesh", "SCR", 16.5115, 80.6310),
+        ("SC", "Secunderabad Junction", "Telangana", "SCR", 17.4398, 78.4983),
+        ("GHY", "Guwahati", "Assam", "NFR", 26.1860, 91.7436),
+        ("CSTM", "Mumbai Central", "Maharashtra", "WR", 18.9667, 72.8443),
+        ("BSB", "Banaras", "Uttar Pradesh", "NR", 25.3333, 83.0037),
+        ("HJP", "Hajipur Junction", "Bihar", "ECR", 25.6855, 85.2125),
+        ("DNR", "Danapur", "Bihar", "ECR", 25.6109, 85.0606),
+        ("JES", "Junction", " Karnataka", "SWR", 12.9806, 77.5667),
     ]
 
     db = SessionLocal()
-    for code, name, state, zone in stations_data:
+    city_map = {c.name: c.id for c in db.query(City).all()}
+
+    for code, name, state, zone, lat, lon in stations_data:
         existing = db.query(Station).filter(Station.code == code).first()
         if not existing:
-            station = Station(code=code, name=name, state=state, zone=zone)
+            # Find nearest city
+            nearest_city_id = None
+            min_distance = float('inf')
+            for city_name, city_id in city_map.items():
+                city = db.query(City).get(city_id)
+                if city and city.latitude and city.longitude:
+                    dist = _haversine(lat, lon, city.latitude, city.longitude)
+                    if dist < min_distance:
+                        min_distance = dist
+                        nearest_city_id = city_id
+
+            station = Station(
+                code=code,
+                name=name,
+                state=state,
+                zone=zone,
+                latitude=lat,
+                longitude=lon,
+                nearest_city_id=nearest_city_id,
+                distance_to_city_km=min_distance if min_distance != float('inf') else None
+            )
             db.add(station)
     db.commit()
-    print(f"Seeded {len(stations_data)} stations")
+    print(f"✅ Seeded {len(stations_data)} stations")
 
 
 def seed_airports() -> None:
-    """Seed Indian airports."""
+    """Seed Indian airports with city links."""
     airports_data = [
         ("DEL", "VIDP", "Indira Gandhi International", "Delhi", "Delhi", 28.5562, 77.1000, True),
         ("BOM", "VABB", "Chhatrapati Shivaji International", "Mumbai", "Maharashtra", 19.0896, 72.8656, True),
@@ -158,12 +189,26 @@ def seed_airports() -> None:
         ("IXM", "VOMD", "Madurai Airport", "Madurai", "Tamil Nadu", 9.8344, 78.0932, False),
         ("TRZ", "VOTR", "Tiruchirappalli International", "Tiruchirappalli", "Tamil Nadu", 10.7647, 78.7089, False),
         ("IXC", "VICG", "Shaheed Bhagat Singh", "Chandigarh", "Punjab", 30.6813, 76.7994, False),
+        ("BBI", "VEBT", "Biju Patnaik", "Bhubaneswar", "Odisha", 20.2436, 85.7693, True),
+        ("DED", "VIDP", "Jolly Grant", "Dehradun", "Uttarakhand", 30.1893, 78.1696, False),
+        ("IDR", "VAAO", "Devi Ahilyabai Holkar", "Indore", "Madhya Pradesh", 22.7271, 75.8018, False),
+        ("VTZ", "VOSM", "Visakhapatnam", "Visakhapatnam", "Andhra Pradesh", 17.7239, 83.2256, False),
     ]
 
     db = SessionLocal()
+    city_map = {c.name: c.id for c in db.query(City).all()}
+
     for iata, icao, name, city, state, lat, lon, intl in airports_data:
         existing = db.query(Airport).filter(Airport.iata_code == iata).first()
         if not existing:
+            nearest_city_id = city_map.get(city)
+            # Calculate distance to nearest city
+            min_distance = 0
+            if nearest_city_id:
+                c = db.query(City).get(nearest_city_id)
+                if c:
+                    min_distance = _haversine(lat, lon, c.latitude, c.longitude)
+
             airport = Airport(
                 iata_code=iata,
                 icao_code=icao,
@@ -174,19 +219,228 @@ def seed_airports() -> None:
                 longitude=lon,
                 is_international=intl,
                 type="large" if intl else "medium",
+                nearest_city_id=nearest_city_id,
+                distance_to_city_km=min_distance
             )
             db.add(airport)
     db.commit()
-    print(f"Seeded {len(airports_data)} airports")
+    print(f"✅ Seeded {len(airports_data)} airports")
+
+
+def seed_sample_routes() -> None:
+    """Seed sample routes for testing."""
+    db = SessionLocal()
+
+    # Sample train routes
+    train_routes = [
+        # Rajdhani routes
+        TrainRoute(
+            train_no=12951,
+            train_name="MUMBAI RAJDHANI",
+            from_station_code="CSMT",
+            to_station_code="NDLS",
+            departure_time=time(17, 0),
+            arrival_time=time(8, 45),
+            duration_minutes=945,
+            distance_km=1386,
+            days_run="Daily",
+            pricing={"1A": 2500, "2A": 1800, "3A": 1200, "SL": 500},
+            on_time_percentage=85.0,
+            classes="1A,2A,3A,SL",
+            source="data.gov.in"
+        ),
+        TrainRoute(
+            train_no=12301,
+            train_name="RAJDHANI EXP",
+            from_station_code="HWH",
+            to_station_code="NDLS",
+            departure_time=time(14, 5),
+            arrival_time=time(9, 55),
+            duration_minutes=1190,
+            distance_km=1441,
+            days_run="Daily",
+            pricing={"1A": 2800, "2A": 2000, "3A": 1400, "SL": 600},
+            on_time_percentage=82.0,
+            classes="1A,2A,3A,SL",
+            source="data.gov.in"
+        ),
+        TrainRoute(
+            train_no=12627,
+            train_name="KARNATAKA EXP",
+            from_station_code="SBC",
+            to_station_code="MAS",
+            departure_time=time(20, 30),
+            arrival_time=time(5, 10),
+            duration_minutes=520,
+            distance_km=350,
+            days_run="Daily",
+            pricing={"2S": 120, "3A": 500, "SL": 180},
+            on_time_percentage=78.0,
+            classes="2S,3A,SL",
+            source="data.gov.in"
+        ),
+    ]
+
+    # Sample flight routes
+    flight_routes = [
+        FlightRoute(
+            flight_no="6E2341",
+            airline="IndiGo",
+            airline_code="6E",
+            from_airport_code="DEL",
+            to_airport_code="BOM",
+            departure_time=time(6, 0),
+            arrival_time=time(8, 15),
+            duration_minutes=135,
+            days_run="Daily",
+            price_min=3500,
+            price_avg=4500,
+            price_max=7500,
+            price_trends={"low": [3500, 4000], "medium": [4000, 6000], "high": [6000, 7500]},
+            on_time_percentage=90.0,
+            aircraft_type="A320neo",
+            source="ixigo"
+        ),
+        FlightRoute(
+            flight_no="UK951",
+            airline="Vistara",
+            airline_code="UK",
+            from_airport_code="BOM",
+            to_airport_code="BLR",
+            departure_time=time(9, 30),
+            arrival_time=time(11, 45),
+            duration_minutes=135,
+            days_run="Daily",
+            price_min=4000,
+            price_avg=5500,
+            price_max=8500,
+            on_time_percentage=88.0,
+            aircraft_type="A320",
+            source="ixigo"
+        ),
+        FlightRoute(
+            flight_no="SG8171",
+            airline="SpiceJet",
+            airline_code="SG",
+            from_airport_code="DEL",
+            to_airport_code="HYD",
+            departure_time=time(14, 0),
+            arrival_time=time(16, 15),
+            duration_minutes=135,
+            days_run="Daily",
+            price_min=3800,
+            price_avg=5000,
+            price_max=7000,
+            on_time_percentage=85.0,
+            aircraft_type="B737-800",
+            source="ixigo"
+        ),
+    ]
+
+    # Sample bus routes
+    bus_routes = [
+        BusRoute(
+            operator="KSRTC",
+            operator_id="ksrtc-001",
+            from_city_id="123",
+            from_city="Bangalore",
+            to_city_id="141",
+            to_city="Coimbatore",
+            departure_time=time(22, 0),
+            arrival_time=time(5, 0),
+            duration_minutes=420,
+            bus_type="A/C Semi-Sleeper",
+            price_min=600,
+            price_avg=800,
+            price_max=1200,
+            rating=4.2,
+            total_ratings=1520,
+            fare_tiers={"seater": 600, "sleeper": 1000},
+            amenities=["wifi", "water", "charging"],
+            source="redbus"
+        ),
+        BusRoute(
+            operator="HRTC",
+            operator_id="hrtc-002",
+            from_city_id="74676",
+            from_city="Bhubaneswar",
+            to_city_id="123",
+            to_city="Kolkata",
+            departure_time=time(20, 30),
+            arrival_time=time(6, 0),
+            duration_minutes=570,
+            bus_type="A/C Sleeper",
+            price_min=700,
+            price_avg=950,
+            price_max=1400,
+            rating=3.9,
+            total_ratings=850,
+            fare_tiers={"seater": 700, "sleeper": 1200},
+            amenities=["water", "blanket"],
+            source="redbus"
+        ),
+    ]
+
+    for route in train_routes:
+        existing = db.query(TrainRoute).filter(
+            TrainRoute.train_no == route.train_no,
+            TrainRoute.from_station_code == route.from_station_code
+        ).first()
+        if not existing:
+            db.add(route)
+
+    for route in flight_routes:
+        existing = db.query(FlightRoute).filter(
+            FlightRoute.flight_no == route.flight_no,
+            FlightRoute.from_airport_code == route.from_airport_code
+        ).first()
+        if not existing:
+            db.add(route)
+
+    for route in bus_routes:
+        existing = db.query(BusRoute).filter(
+            BusRoute.operator == route.operator,
+            BusRoute.from_city == route.from_city
+        ).first()
+        if not existing:
+            db.add(route)
+
+    db.commit()
+    print(f"✅ Seeded sample routes: {len(train_routes)} trains, {len(flight_routes)} flights, {len(bus_routes)} buses")
+
+
+def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two points using Haversine formula."""
+    R = 6371  # Earth's radius in km
+    lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
+    lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
+    dlat, dlon = lat2_rad - lat1_rad, lon2_rad - lon1_rad
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
 
 
 def main() -> None:
     """Initialize database with all seed data."""
+    import math
+
+    print("=" * 60)
+    print("Initializing Travel Planner Database")
+    print("=" * 60)
+
+    # Create all tables
     init_db()
+    print("✅ Created database tables")
+
+    # Seed data
     seed_cities()
     seed_stations()
     seed_airports()
+    seed_sample_routes()
+
+    print("\n" + "=" * 60)
     print("Database initialization complete!")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
