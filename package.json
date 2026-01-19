@@ -1,0 +1,11 @@
+{
+  "name": "travel-planner-india",
+  "version": "1.0.0",
+  "description": "Multi-modal journey planner for India",
+  "scripts": {
+    "backend": "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+    "frontend": "cd frontend && npm run dev",
+    "dev": "bash run-all.sh",
+    "install:all": "pip install -r requirements.txt && cd frontend && npm install"
+  }
+}
