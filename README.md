@@ -39,25 +39,40 @@ Ranchi → (flight) → Bangalore → (train) → Hospet → (auto) → Hampi
 
 ## Installation
 
-```bash
-# Clone and setup
-cd travel-planner-india
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+Prerequisites: [uv](https://docs.astral.sh/uv/) for Python and [pnpm](https://pnpm.io) for the frontend.
 
-# Initialize database
-python -m app.init_db
+```bash
+cd travel-planner-india
+
+# Backend deps (creates .venv/ and uv.lock)
+uv sync
+
+# Frontend deps
+pnpm -C frontend install
+
+# Initialize database (seeds cities, airports, stations, routes)
+uv run python -m app.init_db
 ```
 
 ## Running
 
 ```bash
-# Development server
-uvicorn app.main:app --reload --port 8000
+# Both backend and frontend
+bash run-all.sh
+
+# Or individually:
+uv run uvicorn app.main:app --reload --port 8000
+pnpm -C frontend dev
 
 # API docs
 open http://localhost:8000/docs
+```
+
+## Testing
+
+```bash
+uv run pytest
+pnpm -C frontend build  # type-check + build
 ```
 
 ## Project Structure

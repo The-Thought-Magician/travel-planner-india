@@ -25,26 +25,27 @@ cleanup() {
 # Trap SIGINT and SIGTERM
 trap cleanup SIGINT SIGTERM
 
-# Check Python virtual environment
-if [ ! -d "$PROJECT_ROOT/.venv" ] && [ ! -d "$PROJECT_ROOT/venv" ]; then
-    echo -e "${RED}Python virtual environment not found!${NC}"
-    echo "Create one first: python -m venv .venv"
+# Require uv
+if ! command -v uv >/dev/null 2>&1; then
+    echo -e "${RED}uv not found. Install from https://docs.astral.sh/uv/${NC}"
     exit 1
 fi
 
-# Activate Python venv
-if [ -d "$PROJECT_ROOT/.venv" ]; then
-    source "$PROJECT_ROOT/.venv/bin/activate"
-else
-    source "$PROJECT_ROOT/venv/bin/activate"
+# Require pnpm
+if ! command -v pnpm >/dev/null 2>&1; then
+    echo -e "${RED}pnpm not found. Install with: npm i -g pnpm${NC}"
+    exit 1
 fi
 
-# Check if frontend dependencies are installed
+# Sync Python deps (idempotent)
+export UV_PROJECT_ENVIRONMENT="$PROJECT_ROOT/.venv"
+cd "$PROJECT_ROOT"
+uv sync --quiet
+
+# Sync frontend deps (idempotent)
 if [ ! -d "$PROJECT_ROOT/frontend/node_modules" ]; then
     echo -e "${YELLOW}Installing frontend dependencies...${NC}"
-    cd "$PROJECT_ROOT/frontend"
-    npm install
-    cd "$PROJECT_ROOT"
+    pnpm -C "$PROJECT_ROOT/frontend" install
 fi
 
 # Get the project root directory for the backend
@@ -65,7 +66,7 @@ echo ""
 # Start backend (FastAPI with uvicorn)
 echo -e "${GREEN}Starting backend...${NC}"
 cd "$PROJECT_ROOT"
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
 BACKEND_PID=$!
 
 # Wait a moment for backend to start
@@ -73,8 +74,7 @@ sleep 2
 
 # Start frontend (Next.js)
 echo -e "${GREEN}Starting frontend...${NC}"
-cd "$PROJECT_ROOT/frontend"
-npm run dev &
+pnpm -C "$PROJECT_ROOT/frontend" dev &
 FRONTEND_PID=$!
 
 echo -e "${GREEN}✓ All services started!${NC}"
