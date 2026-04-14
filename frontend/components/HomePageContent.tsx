@@ -2,30 +2,30 @@
 
 import React, { useState } from 'react';
 import { SearchForm } from '@/components/SearchForm';
+import { PopularRoutes } from '@/components/PopularRoutes';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Preference } from '@/types';
 
 export function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = (params: { from: string; to: string; preference: string }) => {
+  const handleSearch = (params: { from: string; to: string; preference: Preference; date?: string }) => {
     setIsSearching(true);
-
-    // Build query parameters
     const query = new URLSearchParams({
       from: params.from,
       to: params.to,
       preference: params.preference,
+      ...(params.date ? { date: params.date } : {}),
     });
-
     router.push(`/results?${query.toString()}`);
   };
 
-  // Get pre-filled values from URL params
   const defaultFrom = searchParams.get('from') || '';
   const defaultTo = searchParams.get('to') || '';
-  const defaultPreference = searchParams.get('preference') || 'balanced';
+  const defaultPreference = (searchParams.get('preference') || 'balanced') as Preference;
+  const defaultDate = searchParams.get('date') || undefined;
 
   return (
     <div className="min-h-screen">
@@ -72,8 +72,8 @@ export function HomePageContent() {
               </span>
             </h1>
             <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
-              Compare flights, trains, and buses in one search. Find the best routes,
-              prices, and schedules for your trip.
+              One search combines flight + train + bus + auto into a complete door-to-door plan —
+              with connection risk, real last-mile cost, and per-leg reliability baked in.
             </p>
           </div>
 
@@ -86,6 +86,7 @@ export function HomePageContent() {
                 defaultFrom={defaultFrom}
                 defaultTo={defaultTo}
                 defaultPreference={defaultPreference}
+                defaultDate={defaultDate}
               />
             </div>
           </div>
@@ -93,33 +94,25 @@ export function HomePageContent() {
           {/* Features */}
           <div className="mt-16 grid md:grid-cols-3 gap-8">
             <FeatureCard
-              icon="✈️"
-              title="Flights"
-              description="Compare prices across airlines with 30-day price forecasts"
+              icon="🧠"
+              title="Multi-leg combinations"
+              description="We combine flights, trains, and buses into a single journey — flight to BLR, train onward to Hampi — with the auto leg included."
             />
             <FeatureCard
-              icon="🚂"
-              title="Trains"
-              description="Real-time status for 13,000+ trains with delay predictions"
+              icon="⏱️"
+              title="Connection intelligence"
+              description="Per-city transfer buffers using historical on-time data flag tight or risky handoffs before you book."
             />
             <FeatureCard
-              icon="🚌"
-              title="Buses"
-              description="Extensive bus network coverage across all states"
+              icon="💰"
+              title="True door-to-door cost"
+              description="Every fare plus last-mile auto plus booking fees plus meals — the real number, not the headline ticket."
             />
           </div>
 
-          {/* Popular Routes */}
+          {/* Popular Routes — live from /api/v1/routes/popular */}
           <div className="mt-16">
-            <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
-              Popular Routes
-            </h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <PopularRoute from="Delhi" to="Mumbai" />
-              <PopularRoute from="Bangalore" to="Chennai" />
-              <PopularRoute from="Kolkata" to="Hyderabad" />
-              <PopularRoute from="Jaipur" to="Udaipur" />
-            </div>
+            <PopularRoutes />
           </div>
         </div>
       </main>
@@ -158,24 +151,3 @@ function FeatureCard({ icon, title, description }: { icon: string; title: string
   );
 }
 
-function PopularRoute({ from, to }: { from: string; to: string }) {
-  const handleClick = () => {
-    const params = new URLSearchParams({ from, to });
-    window.location.href = `/results?${params.toString()}`;
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-all text-left hover:ring-2 hover:ring-saffron-500"
-    >
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">🚀</span>
-        <div>
-          <div className="font-medium text-gray-900">{from}</div>
-          <div className="text-sm text-gray-500">→ {to}</div>
-        </div>
-      </div>
-    </button>
-  );
-}

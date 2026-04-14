@@ -5,7 +5,10 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { JourneyCard } from '@/components/JourneyCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { EmptyState } from '@/components/EmptyState';
+import { AlternativeDatesStrip } from '@/components/AlternativeDatesStrip';
 import { SearchResponse, Journey } from '@/types';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 function ResultsContent() {
   const searchParams = useSearchParams();
@@ -17,6 +20,7 @@ function ResultsContent() {
   const from = searchParams.get('from') || '';
   const to = searchParams.get('to') || '';
   const preference = searchParams.get('preference') || 'balanced';
+  const date = searchParams.get('date') || undefined;
 
   useEffect(() => {
     async function fetchResults() {
@@ -28,11 +32,12 @@ function ResultsContent() {
           from,
           to,
           preference,
-          max_transfers: '2',
+          max_transfers: '3',
           max_journeys: '10',
+          ...(date ? { date } : {}),
         });
 
-        const response = await fetch(`http://localhost:8000/api/v1/search?${params}`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/search?${params}`);
 
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
@@ -51,7 +56,7 @@ function ResultsContent() {
     if (from && to) {
       fetchResults();
     }
-  }, [from, to, preference]);
+  }, [from, to, preference, date]);
 
   const handleJourneyClick = (journey: Journey) => {
     // Store journey details for the detail page
@@ -129,6 +134,13 @@ function ResultsContent() {
           </div>
         </div>
       </div>
+
+      {/* Alternative dates strip for the top journey */}
+      {journeys[0]?.journey_id && (
+        <div className="mb-6">
+          <AlternativeDatesStrip journeyId={journeys[0].journey_id} />
+        </div>
+      )}
 
       {/* Results */}
       <div className="space-y-4">

@@ -1,14 +1,21 @@
 'use client';
 
 import React from 'react';
-import { JourneyLeg } from '@/types';
+import { ConnectionRisk, JourneyLeg } from '@/types';
 import { formatDuration, formatTime, getTransportInfo } from '@/lib/utils';
+import { ConnectionRiskBadge } from './ConnectionRiskBadge';
+import { ReliabilityBar } from './ReliabilityBar';
 
 interface RouteVisualizationProps {
   legs: JourneyLeg[];
+  connectionRisks?: ConnectionRisk[];
 }
 
-export function RouteVisualization({ legs }: RouteVisualizationProps) {
+export function RouteVisualization({ legs, connectionRisks }: RouteVisualizationProps) {
+  const riskByNextLeg = new Map<number, ConnectionRisk>();
+  for (const r of connectionRisks || []) {
+    riskByNextLeg.set(r.between_legs[1], r);
+  }
   return (
     <div className="relative">
       {/* Vertical Line */}
@@ -19,9 +26,16 @@ export function RouteVisualization({ legs }: RouteVisualizationProps) {
         {legs.map((leg, index) => {
           const info = getTransportInfo(leg.mode);
           const isLast = index === legs.length - 1;
+          const riskIntoThis = riskByNextLeg.get(index);
 
           return (
             <div key={index} className="relative">
+              {/* Connection risk (arriving into this leg) */}
+              {riskIntoThis && (
+                <div className="ml-[60px] mb-2">
+                  <ConnectionRiskBadge risk={riskIntoThis} compact />
+                </div>
+              )}
               {/* Step */}
               <div className="relative flex items-start gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors">
                 {/* Icon */}
@@ -73,6 +87,13 @@ export function RouteVisualization({ legs }: RouteVisualizationProps) {
                     )}
                   </div>
 
+                  {/* Per-leg reliability (only for transport legs) */}
+                  {leg.reliability_score != null && leg.mode !== 'auto' && leg.mode !== 'transfer' && (
+                    <div className="mt-2 max-w-xs">
+                      <ReliabilityBar score={leg.reliability_score} label="On-time" />
+                    </div>
+                  )}
+
                   {/* Warnings */}
                   {leg.warnings && leg.warnings.length > 0 && (
                     <div className="mt-2 flex items-center gap-2 text-sm text-amber-600">
@@ -90,8 +111,8 @@ export function RouteVisualization({ legs }: RouteVisualizationProps) {
                 </div>
               </div>
 
-              {/* Transfer Connector */}
-              {!isLast && (
+              {/* Transfer Connector (only when no explicit risk badge between legs) */}
+              {!isLast && !riskByNextLeg.get(index + 1) && (
                 <div className="ml-[60px] mt-1 mb-1 flex items-center gap-2 text-xs text-gray-500">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />

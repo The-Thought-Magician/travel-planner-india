@@ -4,6 +4,9 @@ import React from 'react';
 import { Card, CardBody } from './ui/card';
 import { Journey } from '@/types';
 import { formatCurrency, formatDuration, getTransportInfo } from '@/lib/utils';
+import { CostBreakdownRow } from './CostBreakdownRow';
+import { ConnectionRiskBadge } from './ConnectionRiskBadge';
+import { ReliabilityBar } from './ReliabilityBar';
 
 interface JourneyCardProps {
   journey: Journey;
@@ -81,29 +84,38 @@ export function JourneyCard({ journey, index, onClick }: JourneyCardProps) {
           })}
         </div>
 
+        {/* Reliability bar (journey-level) */}
+        <div className="pt-2">
+          <ReliabilityBar score={journey.reliability_score} label="Overall reliability" />
+        </div>
+
+        {/* Connection risk badges (only tight/risky inline; safe stays out of the way) */}
+        {journey.connection_risks && journey.connection_risks.filter(r => r.risk !== 'safe').length > 0 && (
+          <div className="space-y-2">
+            {journey.connection_risks.filter(r => r.risk !== 'safe').map((r, i) => (
+              <ConnectionRiskBadge key={i} risk={r} />
+            ))}
+          </div>
+        )}
+
+        {/* Cost breakdown (collapsible-feel; rendered inline for now) */}
+        {journey.cost_breakdown && <CostBreakdownRow breakdown={journey.cost_breakdown} />}
+
         {/* Footer */}
         <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-          <div className="flex items-center gap-2">
-            <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-              journey.reliability_score >= 0.8
-                ? 'bg-emerald-100 text-emerald-700'
-                : journey.reliability_score >= 0.6
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-red-100 text-red-700'
-            }`}>
-              {Math.round(journey.reliability_score * 100)}% Reliable
-            </div>
-            {legs.length > 1 && (
-              <span className="text-sm text-gray-500">{legs.length - 1} transfer</span>
+          <div className="flex items-center gap-3">
+            {(journey.transfers ?? legs.length - 1) > 0 && (
+              <span className="text-sm text-gray-500">{journey.transfers ?? legs.length - 1} transfer{((journey.transfers ?? legs.length - 1) === 1) ? '' : 's'}</span>
             )}
           </div>
-          <span className="text-saffron-600 font-medium text-sm">View Details →</span>
+          <span className="text-saffron-600 font-medium text-sm">View details →</span>
         </div>
 
         {journey.warnings && journey.warnings.length > 0 && (
-          <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg">
-            <span className="text-amber-500">⚠️</span>
-            <p className="text-sm text-amber-700">{journey.warnings.join(', ')}</p>
+          <div className="flex flex-col gap-1 p-3 bg-amber-50 rounded-lg">
+            {journey.warnings.map((w, i) => (
+              <p key={i} className="text-sm text-amber-700">{w}</p>
+            ))}
           </div>
         )}
       </CardBody>
