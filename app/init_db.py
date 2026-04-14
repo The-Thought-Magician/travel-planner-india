@@ -1,10 +1,26 @@
 """Initialize database with seed data."""
 
+import json
 import math
+from pathlib import Path
 
 from app.database import init_db, SessionLocal, engine
-from app.models import City, Station, Airport, TrainRoute, FlightRoute, BusRoute
+from app.models import City, Station, Airport, TrainRoute, FlightRoute, BusRoute, TransferTime
 from datetime import datetime, time
+
+SEEDS_DIR = Path(__file__).resolve().parent.parent / "data" / "seeds"
+
+
+def _load_seed(name: str) -> list:
+    path = SEEDS_DIR / name
+    if not path.exists():
+        return []
+    return json.loads(path.read_text())
+
+
+def _parse_hhmm(s: str) -> time:
+    h, m = s.split(":")
+    return time(int(h), int(m))
 
 
 def seed_cities() -> None:
@@ -692,8 +708,12 @@ def seed_stations() -> None:
 
     db = SessionLocal()
     city_map = {c.name: c.id for c in db.query(City).all()}
+    seen: set[str] = set()
 
     for code, name, state, zone, lat, lon in stations_data:
+        if code in seen:
+            continue
+        seen.add(code)
         existing = db.query(Station).filter(Station.code == code).first()
         if not existing:
             # Find nearest city
@@ -719,7 +739,7 @@ def seed_stations() -> None:
             )
             db.add(station)
     db.commit()
-    print(f"✅ Seeded {len(stations_data)} stations")
+    print(f"✅ Seeded {len(seen)} unique stations")
 
 
 def seed_airports() -> None:
@@ -784,8 +804,12 @@ def seed_airports() -> None:
 
     db = SessionLocal()
     city_map = {c.name: c.id for c in db.query(City).all()}
+    seen: set[str] = set()
 
     for iata, icao, name, city, state, lat, lon, intl in airports_data:
+        if iata in seen:
+            continue
+        seen.add(iata)
         existing = db.query(Airport).filter(Airport.iata_code == iata).first()
         if not existing:
             nearest_city_id = city_map.get(city)
@@ -815,184 +839,120 @@ def seed_airports() -> None:
 
 
 def seed_sample_routes() -> None:
-    """Seed sample routes for testing."""
+    """Seed routes from data/seeds/*.json (flights, trains, buses)."""
     db = SessionLocal()
 
-    # Sample train routes
-    train_routes = [
-        TrainRoute(
-            train_no=12951,
-            train_name="MUMBAI RAJDHANI",
-            from_station_code="CSMT",
-            to_station_code="NDLS",
-            departure_time=time(17, 0),
-            arrival_time=time(8, 45),
-            duration_minutes=945,
-            distance_km=1386,
-            days_run="Daily",
-            pricing={"1A": 2500, "2A": 1800, "3A": 1200, "SL": 500},
-            on_time_percentage=85.0,
-            classes="1A,2A,3A,SL",
-            source="data.gov.in"
-        ),
-        TrainRoute(
-            train_no=12301,
-            train_name="RAJDHANI EXP",
-            from_station_code="HWH",
-            to_station_code="NDLS",
-            departure_time=time(14, 5),
-            arrival_time=time(9, 55),
-            duration_minutes=1190,
-            distance_km=1441,
-            days_run="Daily",
-            pricing={"1A": 2800, "2A": 2000, "3A": 1400, "SL": 600},
-            on_time_percentage=82.0,
-            classes="1A,2A,3A,SL",
-            source="data.gov.in"
-        ),
-        TrainRoute(
-            train_no=12627,
-            train_name="KARNATAKA EXP",
-            from_station_code="SBC",
-            to_station_code="MAS",
-            departure_time=time(20, 30),
-            arrival_time=time(5, 10),
-            duration_minutes=520,
-            distance_km=350,
-            days_run="Daily",
-            pricing={"2S": 120, "3A": 500, "SL": 180},
-            on_time_percentage=78.0,
-            classes="2S,3A,SL",
-            source="data.gov.in"
-        ),
-    ]
+    trains = _load_seed("trains.json")
+    flights = _load_seed("flights.json")
+    buses = _load_seed("buses.json")
 
-    # Sample flight routes
-    flight_routes = [
-        FlightRoute(
-            flight_no="6E2341",
-            airline="IndiGo",
-            airline_code="6E",
-            from_airport_code="DEL",
-            to_airport_code="BOM",
-            departure_time=time(6, 0),
-            arrival_time=time(8, 15),
-            duration_minutes=135,
-            days_run="Daily",
-            price_min=3500,
-            price_avg=4500,
-            price_max=7500,
-            price_trends={"low": [3500, 4000], "medium": [4000, 6000], "high": [6000, 7500]},
-            on_time_percentage=90.0,
-            aircraft_type="A320neo",
-            source="ixigo"
-        ),
-        FlightRoute(
-            flight_no="UK951",
-            airline="Vistara",
-            airline_code="UK",
-            from_airport_code="BOM",
-            to_airport_code="BLR",
-            departure_time=time(9, 30),
-            arrival_time=time(11, 45),
-            duration_minutes=135,
-            days_run="Daily",
-            price_min=4000,
-            price_avg=5500,
-            price_max=8500,
-            on_time_percentage=88.0,
-            aircraft_type="A320",
-            source="ixigo"
-        ),
-        FlightRoute(
-            flight_no="SG8171",
-            airline="SpiceJet",
-            airline_code="SG",
-            from_airport_code="DEL",
-            to_airport_code="HYD",
-            departure_time=time(14, 0),
-            arrival_time=time(16, 15),
-            duration_minutes=135,
-            days_run="Daily",
-            price_min=3800,
-            price_avg=5000,
-            price_max=7000,
-            on_time_percentage=85.0,
-            aircraft_type="B737-800",
-            source="ixigo"
-        ),
-    ]
-
-    # Sample bus routes
-    bus_routes = [
-        BusRoute(
-            operator="KSRTC",
-            operator_id="ksrtc-001",
-            from_city_id="123",
-            from_city="Bangalore",
-            to_city_id="141",
-            to_city="Coimbatore",
-            departure_time=time(22, 0),
-            arrival_time=time(5, 0),
-            duration_minutes=420,
-            bus_type="A/C Semi-Sleeper",
-            price_min=600,
-            price_avg=800,
-            price_max=1200,
-            rating=4.2,
-            total_ratings=1520,
-            fare_tiers={"seater": 600, "sleeper": 1000},
-            amenities=["wifi", "water", "charging"],
-            source="redbus"
-        ),
-        BusRoute(
-            operator="HRTC",
-            operator_id="hrtc-002",
-            from_city_id="74676",
-            from_city="Bhubaneswar",
-            to_city_id="123",
-            to_city="Kolkata",
-            departure_time=time(20, 30),
-            arrival_time=time(6, 0),
-            duration_minutes=570,
-            bus_type="A/C Sleeper",
-            price_min=700,
-            price_avg=950,
-            price_max=1400,
-            rating=3.9,
-            total_ratings=850,
-            fare_tiers={"seater": 700, "sleeper": 1200},
-            amenities=["water", "blanket"],
-            source="redbus"
-        ),
-    ]
-
-    for route in train_routes:
+    for t in trains:
         existing = db.query(TrainRoute).filter(
-            TrainRoute.train_no == route.train_no,
-            TrainRoute.from_station_code == route.from_station_code
+            TrainRoute.train_no == t["train_no"],
+            TrainRoute.from_station_code == t["from"],
         ).first()
-        if not existing:
-            db.add(route)
+        if existing:
+            continue
+        db.add(TrainRoute(
+            train_no=t["train_no"],
+            train_name=t["name"],
+            from_station_code=t["from"],
+            to_station_code=t["to"],
+            departure_time=_parse_hhmm(t["departure"]),
+            arrival_time=_parse_hhmm(t["arrival"]),
+            duration_minutes=t["duration_minutes"],
+            distance_km=t.get("distance_km"),
+            days_run=t.get("days", "Daily"),
+            pricing=t.get("pricing"),
+            on_time_percentage=t.get("on_time_pct"),
+            avg_delay_minutes=t.get("avg_delay_minutes"),
+            classes=t.get("classes"),
+            source=t.get("source", "curated"),
+        ))
 
-    for route in flight_routes:
+    for f in flights:
         existing = db.query(FlightRoute).filter(
-            FlightRoute.flight_no == route.flight_no,
-            FlightRoute.from_airport_code == route.from_airport_code
+            FlightRoute.flight_no == f["flight_no"],
+            FlightRoute.from_airport_code == f["from"],
         ).first()
-        if not existing:
-            db.add(route)
+        if existing:
+            continue
+        db.add(FlightRoute(
+            flight_no=f["flight_no"],
+            airline=f["airline"],
+            airline_code=f.get("airline_code"),
+            from_airport_code=f["from"],
+            to_airport_code=f["to"],
+            departure_time=_parse_hhmm(f["departure"]),
+            arrival_time=_parse_hhmm(f["arrival"]),
+            duration_minutes=f["duration_minutes"],
+            days_run=f.get("days", "Daily"),
+            price_min=f.get("price_min"),
+            price_avg=f.get("price_avg"),
+            price_max=f.get("price_max"),
+            on_time_percentage=f.get("on_time_pct"),
+            aircraft_type=f.get("aircraft"),
+            source=f.get("source", "curated"),
+        ))
 
-    for route in bus_routes:
+    for b in buses:
         existing = db.query(BusRoute).filter(
-            BusRoute.operator == route.operator,
-            BusRoute.from_city == route.from_city
+            BusRoute.operator == b["operator"],
+            BusRoute.from_city == b["from_city"],
+            BusRoute.to_city == b["to_city"],
         ).first()
-        if not existing:
-            db.add(route)
+        if existing:
+            continue
+        db.add(BusRoute(
+            operator=b["operator"],
+            operator_id=b.get("operator_id"),
+            from_city=b["from_city"],
+            to_city=b["to_city"],
+            departure_time=_parse_hhmm(b["departure"]),
+            arrival_time=_parse_hhmm(b["arrival"]),
+            duration_minutes=b["duration_minutes"],
+            bus_type=b["bus_type"],
+            price_min=b.get("price_min"),
+            price_avg=b.get("price_avg"),
+            price_max=b.get("price_max"),
+            fare_tiers=b.get("fare_tiers"),
+            rating=b.get("rating"),
+            total_ratings=b.get("total_ratings"),
+            amenities=b.get("amenities"),
+            source=b.get("source", "curated"),
+        ))
 
     db.commit()
-    print(f"✅ Seeded sample routes: {len(train_routes)} trains, {len(flight_routes)} flights, {len(bus_routes)} buses")
+    print(f"✅ Seeded routes: {len(trains)} trains, {len(flights)} flights, {len(buses)} buses")
+
+
+def seed_transfer_times() -> None:
+    """Seed airport↔station transfer-time buffers from JSON."""
+    db = SessionLocal()
+    records = _load_seed("transfer_times.json")
+
+    for r in records:
+        city = db.query(City).filter(City.name == r.get("city_name")).first()
+        existing = db.query(TransferTime).filter(
+            TransferTime.from_hub_code == r["from_hub_code"],
+            TransferTime.to_hub_code == r["to_hub_code"],
+        ).first()
+        if existing:
+            continue
+        db.add(TransferTime(
+            city_id=city.id if city else None,
+            from_hub_type=r["from_hub_type"],
+            from_hub_code=r["from_hub_code"],
+            to_hub_type=r["to_hub_type"],
+            to_hub_code=r["to_hub_code"],
+            typical_minutes=r["typical_minutes"],
+            p90_minutes=r["p90_minutes"],
+            buffer_minutes=r["buffer_minutes"],
+            notes=r.get("notes"),
+        ))
+
+    db.commit()
+    print(f"✅ Seeded {len(records)} transfer-time records")
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -1022,6 +982,7 @@ def main() -> None:
     seed_stations()
     seed_airports()
     seed_sample_routes()
+    seed_transfer_times()
 
     print("\n" + "=" * 60)
     print("Database initialization complete!")

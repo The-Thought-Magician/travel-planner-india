@@ -1,0 +1,142 @@
+[
+  {
+    "city_name": "Bangalore",
+    "from_hub_type": "airport", "from_hub_code": "BLR",
+    "to_hub_type": "station", "to_hub_code": "SBC",
+    "typical_minutes": 90, "p90_minutes": 150, "buffer_minutes": 180,
+    "notes": "Outer Ring Road route; heavy evening traffic"
+  },
+  {
+    "city_name": "Mumbai",
+    "from_hub_type": "airport", "from_hub_code": "BOM",
+    "to_hub_type": "station", "to_hub_code": "CSMT",
+    "typical_minutes": 70, "p90_minutes": 120, "buffer_minutes": 150,
+    "notes": "Airport to CSMT via Western/Harbour; avoid 7-11 AM"
+  },
+  {
+    "city_name": "Mumbai",
+    "from_hub_type": "airport", "from_hub_code": "BOM",
+    "to_hub_type": "station", "to_hub_code": "LTT",
+    "typical_minutes": 40, "p90_minutes": 75, "buffer_minutes": 90,
+    "notes": "LTT is closer to BOM airport"
+  },
+  {
+    "city_name": "Delhi",
+    "from_hub_type": "airport", "from_hub_code": "DEL",
+    "to_hub_type": "station", "to_hub_code": "NDLS",
+    "typical_minutes": 45, "p90_minutes": 75, "buffer_minutes": 90,
+    "notes": "Airport Express Metro takes 20 min; factor buffer for baggage"
+  },
+  {
+    "city_name": "Kolkata",
+    "from_hub_type": "airport", "from_hub_code": "CCU",
+    "to_hub_type": "station", "to_hub_code": "HWH",
+    "typical_minutes": 60, "p90_minutes": 100, "buffer_minutes": 120,
+    "notes": "Via VIP Road; can be slow during monsoon"
+  },
+  {
+    "city_name": "Kolkata",
+    "from_hub_type": "airport", "from_hub_code": "CCU",
+    "to_hub_type": "station", "to_hub_code": "SDAH",
+    "typical_minutes": 40, "p90_minutes": 70, "buffer_minutes": 90,
+    "notes": "Sealdah is closer to airport than Howrah"
+  },
+  {
+    "city_name": "Chennai",
+    "from_hub_type": "airport", "from_hub_code": "MAA",
+    "to_hub_type": "station", "to_hub_code": "MAS",
+    "typical_minutes": 40, "p90_minutes": 65, "buffer_minutes": 80,
+    "notes": "MRTS suburban is fastest"
+  },
+  {
+    "city_name": "Hyderabad",
+    "from_hub_type": "airport", "from_hub_code": "HYD",
+    "to_hub_type": "station", "to_hub_code": "SC",
+    "typical_minutes": 60, "p90_minutes": 90, "buffer_minutes": 110,
+    "notes": "Shamshabad airport is far from city"
+  },
+  {
+    "city_name": "Ahmedabad",
+    "from_hub_type": "airport", "from_hub_code": "AMD",
+    "to_hub_type": "station", "to_hub_code": "ADI",
+    "typical_minutes": 25, "p90_minutes": 45, "buffer_minutes": 60,
+    "notes": "Airport is close to city"
+  },
+  {
+    "city_name": "Kochi",
+    "from_hub_type": "airport", "from_hub_code": "COK",
+    "to_hub_type": "station", "to_hub_code": "ERS",
+    "typical_minutes": 50, "p90_minutes": 80, "buffer_minutes": 100,
+    "notes": "NH-544 via Aluva"
+  },
+  {
+    "city_name": "Pune",
+    "from_hub_type": "airport", "from_hub_code": "PNQ",
+    "to_hub_type": "station", "to_hub_code": "PUNE",
+    "typical_minutes": 30, "p90_minutes": 55, "buffer_minutes": 70,
+    "notes": "Short drive via Airport Road"
+  },
+  {
+    "city_name": "Jaipur",
+    "from_hub_type": "airport", "from_hub_code": "JAI",
+    "to_hub_type": "station", "to_hub_code": "JP",
+    "typical_minutes": 25, "p90_minutes": 45, "buffer_minutes": 60,
+    "notes": "Airport is within city"
+  },
+  {
+    "city_name": "Lucknow",
+    "from_hub_type": "airport", "from_hub_code": "LKO",
+    "to_hub_type": "station", "to_hub_code": "LKO",
+    "typical_minutes": 30, "p90_minutes": 55, "buffer_minutes": 70,
+    "notes": "Amausi to Charbagh"
+  },
+  {
+    "city_name": "Goa",
+    "from_hub_type": "airport", "from_hub_code": "GOI",
+    "to_hub_type": "station", "to_hub_code": "MAO",
+    "typical_minutes": 50, "p90_minutes": 80, "buffer_minutes": 100,
+    "notes": "Dabolim to Madgaon"
+  },
+  {
+    "city_name": "Ranchi",
+    "from_hub_type": "airport", "from_hub_code": "IXR",
+    "to_hub_type": "station", "to_hub_code": "RNC",
+    "typical_minutes": 30, "p90_minutes": 50, "buffer_minutes": 60,
+    "notes": "Birsa Munda to Ranchi Jn"
+  },
+  {
+    "city_name": "Hubli",
+    "from_hub_type": "airport", "from_hub_code": "HBX",
+    "to_hub_type": "station", "to_hub_code": "UBL",
+    "typical_minutes": 25, "p90_minutes": 40, "buffer_minutes": 50,
+    "notes": "Hubli airport to station"
+  },
+  {
+    "city_name": "Siliguri",
+    "from_hub_type": "airport", "from_hub_code": "IXB",
+    "to_hub_type": "station", "to_hub_code": "NJP",
+    "typical_minutes": 30, "p90_minutes": 55, "buffer_minutes": 70,
+    "notes": "Bagdogra to New Jalpaiguri"
+  },
+  {
+    "city_name": "Bangalore",
+    "from_hub_type": "airport", "from_hub_code": "BLR",
+    "to_hub_type": "station", "to_hub_code": "YPR",
+    "typical_minutes": 75, "p90_minutes": 130, "buffer_minutes": 150,
+    "notes": "Yesvantpur alternative to SBC"
+  },
+  {
+    "city_name": "Mumbai",
+    "from_hub_type": "station", "from_hub_code": "CSMT",
+    "to_hub_type": "station", "to_hub_code": "LTT",
+    "typical_minutes": 50, "p90_minutes": 90, "buffer_minutes": 110,
+    "notes": "Central to Lokmanya Tilak via local train"
+  },
+  {
+    "city_name": "Delhi",
+    "from_hub_type": "station", "from_hub_code": "NDLS",
+    "to_hub_type": "station", "to_hub_code": "DEE",
+    "typical_minutes": 45, "p90_minutes": 75, "buffer_minutes": 90,
+    "notes": "New Delhi to Delhi Sarai Rohilla via metro"
+  }
+]
