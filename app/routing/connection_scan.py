@@ -18,15 +18,20 @@ from typing import Any
 class Connection:
     """A transport connection (leg of a journey)."""
 
-    mode: str  # "flight", "train", "bus"
+    mode: str  # "flight", "train", "bus", "transfer"
     from_code: str
     to_code: str
-    departure_time: time
+    departure_time: time  # accepts datetime too; only .hour/.minute are used
     arrival_time: time
     cost: int
-    vehicle_id: str  # Flight/train/bus number
-    reliability: float = 0.8  # On-time probability
+    vehicle_id: str  # Flight/train/bus number or "TRANSFER"
+    reliability: float = 0.8  # On-time probability (0-1)
     duration_minutes: int = 0
+    # Optional human-friendly labels (populated for buses and transfers)
+    from_city: str | None = None
+    to_city: str | None = None
+    # Optional metadata — avg historical delay, used by connection-risk scoring
+    avg_delay_minutes: float | None = None
 
     def __post_init__(self) -> None:
         """Calculate duration after initialization."""

@@ -1,0 +1,14 @@
+[
+  {"name": "Hampi", "state": "Karnataka", "code": null, "latitude": 15.3350, "longitude": 76.4600, "is_major": false},
+  {"name": "Hospet", "state": "Karnataka", "code": null, "latitude": 15.2684, "longitude": 76.3871, "is_major": false},
+  {"name": "Gokarna", "state": "Karnataka", "code": null, "latitude": 14.5492, "longitude": 74.3185, "is_major": false},
+  {"name": "Pondicherry", "state": "Puducherry", "code": "PNY", "latitude": 11.9416, "longitude": 79.8083, "is_major": false},
+  {"name": "Mahabalipuram", "state": "Tamil Nadu", "code": null, "latitude": 12.6208, "longitude": 80.1945, "is_major": false},
+  {"name": "Ooty", "state": "Tamil Nadu", "code": null, "latitude": 11.4064, "longitude": 76.6932, "is_major": false},
+  {"name": "Munnar", "state": "Kerala", "code": null, "latitude": 10.0889, "longitude": 77.0595, "is_major": false},
+  {"name": "Alleppey", "state": "Kerala", "code": null, "latitude": 9.4981, "longitude": 76.3388, "is_major": false},
+  {"name": "Manali", "state": "Himachal Pradesh", "code": null, "latitude": 32.2432, "longitude": 77.1892, "is_major": false},
+  {"name": "Rishikesh", "state": "Uttarakhand", "code": null, "latitude": 30.0869, "longitude": 78.2676, "is_major": false},
+  {"name": "Pushkar", "state": "Rajasthan", "code": null, "latitude": 26.4870, "longitude": 74.5515, "is_major": false},
+  {"name": "Udaipur", "state": "Rajasthan", "code": "UDR", "latitude": 24.5854, "longitude": 73.7125, "is_major": false}
+]

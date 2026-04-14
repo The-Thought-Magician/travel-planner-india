@@ -926,6 +926,26 @@ def seed_sample_routes() -> None:
     print(f"✅ Seeded routes: {len(trains)} trains, {len(flights)} flights, {len(buses)} buses")
 
 
+def seed_extra_cities() -> None:
+    """Seed additional tourist cities that aren't in the default inline list."""
+    db = SessionLocal()
+    records = _load_seed("cities_extra.json")
+    for r in records:
+        existing = db.query(City).filter(City.name == r["name"]).first()
+        if existing:
+            continue
+        db.add(City(
+            name=r["name"],
+            state=r["state"],
+            code=r.get("code"),
+            latitude=r["latitude"],
+            longitude=r["longitude"],
+            is_top_city=r.get("is_major", False),
+        ))
+    db.commit()
+    print(f"✅ Seeded {len(records)} extra cities")
+
+
 def seed_transfer_times() -> None:
     """Seed airport↔station transfer-time buffers from JSON."""
     db = SessionLocal()
@@ -979,6 +999,7 @@ def main() -> None:
 
     # Seed data
     seed_cities()
+    seed_extra_cities()
     seed_stations()
     seed_airports()
     seed_sample_routes()
