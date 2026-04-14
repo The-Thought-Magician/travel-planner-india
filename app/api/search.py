@@ -1,32 +1,68 @@
-"""Search endpoint for multi-modal journey planning."""
+"""Search and journey-lookup endpoints."""
 
+from __future__ import annotations
+
+import time as _time
+from collections import OrderedDict
 from datetime import date, timedelta
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
 
-from app.api.schemas import SearchRequest, SearchResponse, JourneyOption, JourneyLeg
-from app.services.journey_planner import JourneyPlanner
-from app.models import City
+from app.api.schemas import SearchRequest  # noqa: F401  (kept for backward-compat)
 from app.database import get_db
+from app.models import City
+from app.services.journey_planner import JourneyPlanner
 
 router = APIRouter()
 
+
+# ---------------------------------------------------------------------- #
+# Journey cache
+# ---------------------------------------------------------------------- #
+# Journeys are transient: we don't persist them, but the UI wants to deep-link
+# to a specific result and reload it. A simple TTL-LRU in the process serves
+# the MVP. Key: journey_id returned in /search.
+
+_JOURNEY_TTL_SECONDS = 30 * 60
+_JOURNEY_CACHE_MAX = 1024
+_journey_cache: "OrderedDict[str, tuple[float, dict[str, Any]]]" = OrderedDict()
+
+
+def _cache_put(journey_id: str, payload: dict[str, Any]) -> None:
+    now = _time.time()
+    _journey_cache[journey_id] = (now, payload)
+    _journey_cache.move_to_end(journey_id)
+    while len(_journey_cache) > _JOURNEY_CACHE_MAX:
+        _journey_cache.popitem(last=False)
+
+
+def _cache_get(journey_id: str) -> dict[str, Any] | None:
+    entry = _journey_cache.get(journey_id)
+    if not entry:
+        return None
+    ts, payload = entry
+    if _time.time() - ts > _JOURNEY_TTL_SECONDS:
+        _journey_cache.pop(journey_id, None)
+        return None
+    _journey_cache.move_to_end(journey_id)
+    return payload
+
+
+# ---------------------------------------------------------------------- #
+# Search
+# ---------------------------------------------------------------------- #
 
 @router.get("/search")
 def search_journeys(
     from_location: str = Query(..., alias="from", description="Origin city name"),
     to_location: str = Query(..., alias="to", description="Destination city name"),
-    travel_date: str = Query(None, description="Travel date (YYYY-MM-DD), defaults to today"),
-    preference: str = Query("balanced", description="cheapest, fastest, most_reliable, or balanced"),
-    max_transfers: int = Query(3, ge=0, le=5, description="Maximum transfers"),
-    max_journeys: int = Query(10, ge=1, le=20, description="Maximum journeys to return"),
+    travel_date: str | None = Query(None, alias="date", description="Travel date YYYY-MM-DD"),
+    preference: str = Query("balanced", description="cheapest | fastest | reliable | balanced"),
+    max_transfers: int = Query(3, ge=0, le=5),
+    max_journeys: int = Query(10, ge=1, le=20),
 ):
-    """
-    Search for multi-modal journey options.
-
-    Finds optimal combinations of flights, trains, buses, and last-mile transport
-    to get from origin to destination.
-    """
-    # Default to today if no date provided
+    """Multi-leg journey search."""
     if travel_date is None:
         travel_date_obj = date.today()
     else:
@@ -35,16 +71,14 @@ def search_journeys(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-    # Validate preference
-    valid_preferences = {"cheapest", "fastest", "most_reliable", "balanced"}
+    valid_preferences = {"cheapest", "fastest", "most_reliable", "reliable", "balanced"}
     if preference not in valid_preferences:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid preference. Must be one of: {', '.join(valid_preferences)}",
+            detail=f"Invalid preference. Must be one of: {', '.join(sorted(valid_preferences))}",
         )
 
     planner = JourneyPlanner()
-
     try:
         journeys, metadata = planner.find_journeys(
             from_city=from_location,
@@ -54,83 +88,71 @@ def search_journeys(
             max_transfers=max_transfers,
             max_journeys=max_journeys,
         )
-
-        # Get location objects for response
-        db = next(get_db())
-        from_city_obj = db.query(City).filter(City.name.ilike(from_location)).first()
-        to_city_obj = db.query(City).filter(City.name.ilike(to_location)).first()
-
-        # Build location objects
-        def build_location(city, query_name):
-            if city:
-                return {
-                    "id": str(city.id),
-                    "name": city.name,
-                    "type": "city",
-                    "code": city.code or city.name[:3].upper(),
-                    "state": city.state,
-                    "latitude": city.latitude,
-                    "longitude": city.longitude,
-                }
-            return {
-                "id": query_name.lower().replace(" ", "-"),
-                "name": query_name,
-                "type": "city",
-                "code": query_name[:3].upper(),
-            }
-
-        from_loc = build_location(from_city_obj, from_location)
-        to_loc = build_location(to_city_obj, to_location)
-
-        # Update metadata with location objects
-        metadata["from_location"] = from_loc
-        metadata["to_location"] = to_loc
-        metadata["query"] = {
-            "from": from_location,
-            "to": to_location,
-            "preference": preference,
-            "max_transfers": max_transfers,
-            "max_journeys": max_journeys,
-        }
-
-        return {
-            "journeys": journeys,
-            "metadata": metadata,
-        }
     except ValueError as e:
-        metadata = {
-            "from_location": {"name": from_location},
-            "to_location": {"name": to_location},
-            "query": {
-                "from": from_location,
-                "to": to_location,
-                "preference": preference,
-            },
-            "error": str(e),
-        }
         return {
             "journeys": [],
-            "metadata": metadata,
+            "metadata": {
+                "error": str(e),
+                "query": {"from": from_location, "to": to_location, "preference": preference},
+            },
         }
 
+    # Build rich from/to location objects
+    db = next(get_db())
+    from_city_obj = db.query(City).filter(City.name.ilike(from_location)).first()
+    to_city_obj = db.query(City).filter(City.name.ilike(to_location)).first()
+
+    def _city_payload(city: City | None, fallback_name: str) -> dict:
+        if city:
+            return {
+                "id": str(city.id),
+                "name": city.name,
+                "type": "city",
+                "code": city.code or city.name[:3].upper(),
+                "state": city.state,
+                "latitude": city.latitude,
+                "longitude": city.longitude,
+            }
+        return {
+            "id": fallback_name.lower().replace(" ", "-"),
+            "name": fallback_name,
+            "type": "city",
+            "code": fallback_name[:3].upper(),
+        }
+
+    metadata["from_location"] = _city_payload(from_city_obj, from_location)
+    metadata["to_location"] = _city_payload(to_city_obj, to_location)
+    metadata["query"] = {
+        "from": from_location,
+        "to": to_location,
+        "date": travel_date_obj.isoformat(),
+        "preference": preference,
+        "max_transfers": max_transfers,
+        "max_journeys": max_journeys,
+    }
+
+    # Cache each journey by id so clients can deep-link to /journeys/{id}
+    for j in journeys:
+        jid = j.get("journey_id")
+        if jid:
+            _cache_put(jid, {"journey": j, "metadata": metadata})
+
+    return {"journeys": journeys, "metadata": metadata}
+
+
+# ---------------------------------------------------------------------- #
+# Locations autocomplete
+# ---------------------------------------------------------------------- #
 
 @router.get("/locations")
 def search_locations(
     q: str = Query(..., min_length=2, description="Search query"),
-    limit: int = Query(10, ge=1, le=50, description="Maximum results"),
+    limit: int = Query(10, ge=1, le=50),
 ):
-    """
-    Search for locations (cities, stations, airports) by name.
-    Used for autocomplete in the frontend.
-    """
     db = next(get_db())
-
-    # Search cities
     cities = db.query(City).filter(City.name.ilike(f"%{q}%")).limit(limit).all()
-
-    locations = []
-    for city in cities:
-        locations.append({
+    locations = [
+        {
             "id": f"city-{city.id}",
             "name": city.name,
             "type": "city",
@@ -138,32 +160,71 @@ def search_locations(
             "state": city.state,
             "latitude": city.latitude,
             "longitude": city.longitude,
-        })
+        }
+        for city in cities
+    ]
+    return {"locations": locations, "count": len(locations)}
 
-    return {
-        "locations": locations,
-        "count": len(locations),
-    }
 
+# ---------------------------------------------------------------------- #
+# Journey lookup by ID (cached)
+# ---------------------------------------------------------------------- #
 
 @router.get("/journeys/{journey_id}")
-def get_journey_details(journey_id: str):
-    """
-    Get journey details by ID.
+def get_journey(journey_id: str):
+    payload = _cache_get(journey_id)
+    if not payload:
+        raise HTTPException(
+            status_code=404,
+            detail="Journey not found or expired. Please run a new search.",
+        )
+    return payload
 
-    Note: This is a placeholder. Currently journey details are
-    transient and generated on-demand. In a full implementation,
-    you would save journeys to a database for retrieval.
-    """
-    # For now, return a not found response
-    # The frontend stores journey data in sessionStorage
-    raise HTTPException(
-        status_code=404,
-        detail="Journey details not found on server. Please use the browser back button."
-    )
+
+@router.get("/journeys/{journey_id}/alternatives")
+def journey_alternatives(journey_id: str, window: int = Query(7, ge=3, le=14)):
+    """Return daily cheapest totals for dates ±window/2 around the original."""
+    payload = _cache_get(journey_id)
+    if not payload:
+        raise HTTPException(status_code=404, detail="Journey not found or expired.")
+    meta = payload.get("metadata", {})
+    q = meta.get("query", {})
+    original_total = payload["journey"].get("total_cost")
+    try:
+        base_date = date.fromisoformat(q.get("date"))
+    except Exception:
+        base_date = date.today()
+
+    half = window // 2
+    planner = JourneyPlanner()
+    results: list[dict[str, Any]] = []
+    for offset in range(-half, half + 1):
+        d = base_date + timedelta(days=offset)
+        try:
+            journeys, _ = planner.find_journeys(
+                from_city=q.get("from"),
+                to_city=q.get("to"),
+                travel_date=d,
+                preference="cheapest",
+                max_journeys=1,
+            )
+            if journeys:
+                cheapest = journeys[0]["total_cost"]
+                results.append({
+                    "date": d.isoformat(),
+                    "cheapest_total": cheapest,
+                    "delta_vs_selected": cheapest - (original_total or cheapest),
+                    "is_selected": offset == 0,
+                })
+        except Exception:
+            continue
+    return {"alternatives": results, "base_date": base_date.isoformat(), "original_total": original_total}
 
 
 @router.get("/search/health")
 async def search_health() -> dict:
-    """Health check for search service."""
-    return {"status": "healthy", "service": "search"}
+    return {
+        "status": "healthy",
+        "service": "search",
+        "cache_size": len(_journey_cache),
+    }

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.api import search, stations, airports, cities
+from app.api import search, stations, airports, cities, routes
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ app.include_router(search.router, prefix="/api/v1", tags=["search"])
 app.include_router(stations.router, prefix="/api/v1", tags=["stations"])
 app.include_router(airports.router, prefix="/api/v1", tags=["airports"])
 app.include_router(cities.router, prefix="/api/v1", tags=["cities"])
+app.include_router(routes.router, prefix="/api/v1", tags=["routes"])
 
 
 @app.get("/")
