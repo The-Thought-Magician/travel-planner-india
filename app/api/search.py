@@ -221,6 +221,46 @@ def journey_alternatives(journey_id: str, window: int = Query(7, ge=3, le=14)):
     return {"alternatives": results, "base_date": base_date.isoformat(), "original_total": original_total}
 
 
+@router.post("/journeys/{journey_id}/replan")
+def replan_journey(
+    journey_id: str,
+    exclude_vehicle_id: str = Query(..., description="vehicle_id to avoid (e.g. flight/train/bus number)"),
+):
+    """Re-plan the same origin/destination excluding a disrupted leg.
+
+    The UI wires this to a "If this train is delayed, re-plan" action on each
+    transport leg — the new journeys are returned and cached under fresh ids.
+    """
+    payload = _cache_get(journey_id)
+    if not payload:
+        raise HTTPException(status_code=404, detail="Journey not found or expired.")
+    q = payload.get("metadata", {}).get("query", {})
+    if not q.get("from") or not q.get("to"):
+        raise HTTPException(status_code=400, detail="Original search metadata missing.")
+
+    try:
+        base_date = date.fromisoformat(q.get("date")) if q.get("date") else date.today()
+    except Exception:
+        base_date = date.today()
+
+    planner = JourneyPlanner()
+    journeys, metadata = planner.find_journeys(
+        from_city=q["from"],
+        to_city=q["to"],
+        travel_date=base_date,
+        preference=q.get("preference", "balanced"),
+        max_journeys=5,
+        excluded_vehicle_ids={exclude_vehicle_id},
+    )
+    metadata["replanned_excluding"] = exclude_vehicle_id
+    metadata["original_journey_id"] = journey_id
+    for j in journeys:
+        jid = j.get("journey_id")
+        if jid:
+            _cache_put(jid, {"journey": j, "metadata": metadata})
+    return {"journeys": journeys, "metadata": metadata}
+
+
 @router.get("/search/health")
 async def search_health() -> dict:
     return {

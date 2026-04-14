@@ -60,8 +60,13 @@ class JourneyPlanner:
         preference: str = "balanced",
         max_transfers: int = 3,
         max_journeys: int = 5,
+        excluded_vehicle_ids: set[str] | None = None,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        """Top-level search. See module docstring."""
+        """Top-level search. See module docstring.
+
+        ``excluded_vehicle_ids`` lets callers re-plan around a disrupted leg —
+        any Connection whose vehicle_id is in the set is dropped from the pool.
+        """
         origin = self._find_city(from_city)
         destination = self._find_city(to_city)
 
@@ -83,6 +88,8 @@ class JourneyPlanner:
                                          origin_hubs + dest_hubs + transit_hubs}.values())
 
         connections = self._build_connection_pool(all_hubs, origin, destination)
+        if excluded_vehicle_ids:
+            connections = [c for c in connections if c.vehicle_id not in excluded_vehicle_ids]
         if not connections:
             return self._create_fallback_journeys(origin, destination)
 
@@ -94,8 +101,10 @@ class JourneyPlanner:
         # Search across every (origin hub, destination hub) pair, gather, rank.
         all_journeys: List[Journey] = []
         for from_loc in origin_hubs:
+            if not from_loc.code:
+                continue
             for to_loc in dest_hubs:
-                if from_loc.code == to_loc.code:
+                if not to_loc.code or from_loc.code == to_loc.code:
                     continue
                 found = csa.find_k_best(
                     from_code=from_loc.code,
@@ -162,6 +171,8 @@ class JourneyPlanner:
         )
 
     def _hubs_near(self, city: City, radius_stn: float = 50, radius_air: float = 100) -> List[Location]:
+        if city.latitude is None or city.longitude is None:
+            return []
         stations = self.geo.find_nearby_stations(city.latitude, city.longitude, radius_km=radius_stn, limit=3)
         airports = self.geo.find_nearby_airports(city.latitude, city.longitude, radius_km=radius_air, limit=2)
         return stations + airports
@@ -263,10 +274,10 @@ class JourneyPlanner:
                 continue
             by_city.setdefault(h.city_id, []).append(h)
 
-        for city_id, city_hubs in by_city.items():
+        for _city_id, city_hubs in by_city.items():
             for i, a in enumerate(city_hubs):
                 for b in city_hubs[i + 1:]:
-                    if a.code == b.code:
+                    if not a.code or not b.code or a.code == b.code:
                         continue
                     if a.location_type == b.location_type:
                         continue  # don't connect station↔station or airport↔airport here
@@ -279,13 +290,13 @@ class JourneyPlanner:
         from datetime import time as _time
         edges: List[Connection] = []
         for h in hubs:
-            if h.city_id is None:
+            if h.city_id is None or not h.code:
                 continue
             city = self.db.query(City).get(h.city_id)
             if not city or city.name not in city_names:
                 continue
-            # Only bridge a small set to avoid explosion (primary hub only)
-            buf = connection_risk.lookup_transfer(self.db, h.code, h.code)
+            if city.latitude is None or city.longitude is None:
+                continue
             # Use city.name as a code; cost ≈ last-mile estimate
             dist_km = self.geo.calculate_distance(city.latitude, city.longitude, h.latitude, h.longitude)
             cost = self.geo.estimate_last_mile_cost(city.id, max(1.0, dist_km))
@@ -440,11 +451,13 @@ class JourneyPlanner:
         # -- origin last-mile leg (home → first hub) --
         first_conn = journey.connections[0]
         first_hub = self._hub_by_code(origin_hubs, first_conn.from_code)
-        origin_distance = (
-            self.geo.calculate_distance(origin.latitude, origin.longitude,
-                                        first_hub.latitude, first_hub.longitude)
-            if first_hub else 10.0
-        )
+        if (first_hub and origin.latitude is not None and origin.longitude is not None):
+            origin_distance = self.geo.calculate_distance(
+                origin.latitude, origin.longitude,
+                first_hub.latitude, first_hub.longitude,
+            )
+        else:
+            origin_distance = 10.0
         origin_lm_cost = self.geo.estimate_last_mile_cost(origin.id, origin_distance)
         origin_lm_dur = max(15, int(origin_distance * 3))
         legs.append({
@@ -514,11 +527,13 @@ class JourneyPlanner:
         # -- destination last-mile leg --
         last_conn = journey.connections[-1]
         last_hub = self._hub_by_code(dest_hubs, last_conn.to_code)
-        dest_distance = (
-            self.geo.calculate_distance(destination.latitude, destination.longitude,
-                                        last_hub.latitude, last_hub.longitude)
-            if last_hub else 10.0
-        )
+        if (last_hub and destination.latitude is not None and destination.longitude is not None):
+            dest_distance = self.geo.calculate_distance(
+                destination.latitude, destination.longitude,
+                last_hub.latitude, last_hub.longitude,
+            )
+        else:
+            dest_distance = 10.0
         dest_lm_cost = self.geo.estimate_last_mile_cost(destination.id, dest_distance)
         dest_lm_dur = max(15, int(dest_distance * 3))
         legs.append({
@@ -633,10 +648,14 @@ class JourneyPlanner:
     def _create_fallback_journeys(
         self, origin: City, destination: City
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        distance_km = self.geo.calculate_distance(
-            origin.latitude, origin.longitude,
-            destination.latitude, destination.longitude
-        )
+        if (origin.latitude is not None and origin.longitude is not None
+                and destination.latitude is not None and destination.longitude is not None):
+            distance_km = self.geo.calculate_distance(
+                origin.latitude, origin.longitude,
+                destination.latitude, destination.longitude,
+            )
+        else:
+            distance_km = 500.0
         estimated_cost = max(500, int(distance_km * 2))
         estimated_duration = int(distance_km / 50 * 60)
         journey = {

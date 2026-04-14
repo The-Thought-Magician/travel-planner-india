@@ -59,9 +59,8 @@ function ResultsContent() {
   }, [from, to, preference, date]);
 
   const handleJourneyClick = (journey: Journey) => {
-    // Store journey details for the detail page
     sessionStorage.setItem('selectedJourney', JSON.stringify(journey));
-    router.push(`/journey?id=${journey.journey_id}`);
+    router.push(`/journey/${journey.journey_id}`);
   };
 
   const handleNewSearch = () => {

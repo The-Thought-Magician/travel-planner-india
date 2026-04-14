@@ -1,28 +1,33 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { RouteVisualization, JourneySummary } from '@/components/RouteVisualization';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
 import { CostBreakdownRow } from '@/components/CostBreakdownRow';
 import { ConnectionRiskBadge } from '@/components/ConnectionRiskBadge';
 import { AlternativeDatesStrip } from '@/components/AlternativeDatesStrip';
+import { DisruptionReplan } from '@/components/DisruptionReplan';
 import { Journey } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export function JourneyDetailContent() {
   const searchParams = useSearchParams();
+  const routeParams = useParams();
   const router = useRouter();
   const [journey, setJourney] = useState<Journey | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [replanResults, setReplanResults] = useState<Journey[] | null>(null);
 
   useEffect(() => {
-    const journeyId = searchParams.get('id');
+    // Dynamic route /journey/[id] wins; fall back to ?id= for legacy links.
+    const dynamicId = typeof routeParams?.id === 'string' ? routeParams.id : Array.isArray(routeParams?.id) ? routeParams.id[0] : undefined;
+    const journeyId = dynamicId || searchParams.get('id') || undefined;
 
-    // Try session storage first (fast path — same tab navigation)
+    // Session storage is the fast path when navigating from the results list.
     const stored = sessionStorage.getItem('selectedJourney');
     if (stored) {
       try {
@@ -42,7 +47,7 @@ export function JourneyDetailContent() {
     } else {
       setIsLoading(false);
     }
-  }, [searchParams]);
+  }, [searchParams, routeParams]);
 
   const fetchJourney = async (id: string) => {
     try {
@@ -158,9 +163,9 @@ export function JourneyDetailContent() {
         {journey.booking_links?.per_leg && journey.booking_links.per_leg.length > 0 && (
           <div className="rounded-xl border border-gray-200 bg-white p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Book each leg</h3>
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-2 text-sm">
               {journey.booking_links.per_leg.map((l, i) => (
-                <li key={i}>
+                <li key={i} className="flex flex-wrap items-center gap-3">
                   <a
                     href={l.url}
                     target="_blank"
@@ -168,6 +173,46 @@ export function JourneyDetailContent() {
                     className="text-saffron-700 hover:underline"
                   >
                     {l.mode} {l.vehicle_id} ↗
+                  </a>
+                  <DisruptionReplan
+                    journeyId={journey.journey_id}
+                    vehicleId={l.vehicle_id}
+                    mode={l.mode}
+                    onReplanned={setReplanResults}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {replanResults && replanResults.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 className="text-sm font-semibold text-amber-900">Alternate journeys (disrupted leg excluded)</h3>
+              <button
+                onClick={() => setReplanResults(null)}
+                className="text-xs text-amber-700 hover:underline"
+              >
+                Dismiss
+              </button>
+            </div>
+            <ul className="space-y-2">
+              {replanResults.slice(0, 3).map((j) => (
+                <li key={j.journey_id}>
+                  <a
+                    href={`/journey/${j.journey_id}`}
+                    className="flex items-baseline justify-between rounded-md bg-white border border-amber-200 px-3 py-2 hover:border-amber-400"
+                  >
+                    <span className="text-sm text-gray-900">
+                      {j.legs
+                        .filter((l) => l.mode !== 'auto' && l.mode !== 'transfer')
+                        .map((l) => `${l.mode} ${l.flight_train_bus_no || ''}`)
+                        .join(' → ')}
+                    </span>
+                    <span className="text-sm font-semibold text-saffron-700">
+                      ₹{j.total_cost.toLocaleString('en-IN')}
+                    </span>
                   </a>
                 </li>
               ))}

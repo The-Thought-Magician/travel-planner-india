@@ -64,6 +64,23 @@ def test_popular_routes_endpoint(client):
     assert all("from" in r and "to" in r for r in data["routes"])
 
 
+def test_journey_replan_excludes_disrupted_leg(client):
+    """After searching Ranchi→Hampi, replanning without flight 6E234 must
+    return a top journey that does NOT use that flight."""
+    r1 = client.get("/api/v1/search?from=Ranchi&to=Hampi&preference=balanced&max_journeys=3")
+    assert r1.status_code == 200
+    journeys = r1.json()["journeys"]
+    assert journeys
+    jid = journeys[0]["journey_id"]
+    r2 = client.post(f"/api/v1/journeys/{jid}/replan?exclude_vehicle_id=6E234")
+    assert r2.status_code == 200
+    new_journeys = r2.json()["journeys"]
+    assert new_journeys
+    for j in new_journeys:
+        vehicle_ids = [leg.get("flight_train_bus_no") for leg in j["legs"]]
+        assert "6E234" not in vehicle_ids
+
+
 def test_journey_cache_roundtrip(client):
     """After /search, each returned journey_id should be retrievable via /journeys/{id}."""
     r1 = client.get("/api/v1/search?from=Delhi&to=Mumbai&max_journeys=2")
