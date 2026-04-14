@@ -117,3 +117,50 @@ def test_csa_with_transfer():
 
     # Should find the connecting journey
     assert len(journeys) >= 1
+
+
+def test_connection_from_city_label():
+    """Regression: Connection should accept optional from_city/to_city kwargs."""
+    c = Connection(
+        mode="bus",
+        from_code="Bangalore",
+        to_code="Hampi",
+        from_city="Bangalore",
+        to_city="Hampi",
+        departure_time=time(22, 0),
+        arrival_time=time(6, 30),
+        cost=1150,
+        vehicle_id="KSRTC",
+        reliability=0.82,
+    )
+    assert c.from_city == "Bangalore"
+    assert c.duration_minutes == 510
+
+
+def test_csa_respects_min_buffer():
+    """If transfer buffer < min_buffer, the leg should not be accepted."""
+    connections = [
+        Connection(
+            mode="flight", from_code="A", to_code="B",
+            departure_time=time(10, 0), arrival_time=time(11, 0),
+            cost=1000, vehicle_id="F1", reliability=0.9,
+        ),
+        # Tight connection: 15 min buffer, needs 60
+        Connection(
+            mode="train", from_code="B", to_code="C",
+            departure_time=time(11, 15), arrival_time=time(13, 0),
+            cost=500, vehicle_id="T1", reliability=0.9,
+        ),
+        # Safe connection: 90 min buffer
+        Connection(
+            mode="train", from_code="B", to_code="C",
+            departure_time=time(12, 30), arrival_time=time(14, 30),
+            cost=600, vehicle_id="T2", reliability=0.9,
+        ),
+    ]
+    csa = ConnectionScanAlgorithm(connections, min_connection_buffer=60)
+    journeys = csa.find_k_best("A", "C", k=2, max_transfers=1)
+    # Only T2 should be reachable; no journey should use T1
+    for j in journeys:
+        vehicle_ids = [c.vehicle_id for c in j.connections]
+        assert "T1" not in vehicle_ids

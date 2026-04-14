@@ -36,8 +36,44 @@ def test_search_missing_params(client):
 
 def test_search_invalid_date(client):
     """Test search with invalid date format."""
-    response = client.get("/api/v1/search?from=Ranchi&to=Hampi&travel_date=invalid")
+    response = client.get("/api/v1/search?from=Ranchi&to=Hampi&date=invalid")
     assert response.status_code == 400
+
+
+def test_search_multi_leg_ranchi_hampi(client):
+    """Ranchi→Hampi should return a multi-leg journey combining flight+train."""
+    response = client.get("/api/v1/search?from=Ranchi&to=Hampi&preference=balanced&max_journeys=3")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["journeys"]) >= 1
+    top = data["journeys"][0]
+    modes = {leg["mode"] for leg in top["legs"]}
+    # We expect at least one flight and one train in the top journey
+    assert "flight" in modes or "train" in modes, modes
+    # Cost breakdown present
+    assert "cost_breakdown" in top
+    breakdown = top["cost_breakdown"]
+    assert breakdown["tickets"] + breakdown["last_mile"] + breakdown["booking_fees"] + breakdown["meals_incidentals"] == breakdown["total"]
+
+
+def test_popular_routes_endpoint(client):
+    response = client.get("/api/v1/routes/popular?limit=5")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 5
+    assert all("from" in r and "to" in r for r in data["routes"])
+
+
+def test_journey_cache_roundtrip(client):
+    """After /search, each returned journey_id should be retrievable via /journeys/{id}."""
+    r1 = client.get("/api/v1/search?from=Delhi&to=Mumbai&max_journeys=2")
+    assert r1.status_code == 200
+    journeys = r1.json()["journeys"]
+    assert journeys
+    jid = journeys[0]["journey_id"]
+    r2 = client.get(f"/api/v1/journeys/{jid}")
+    assert r2.status_code == 200
+    assert r2.json()["journey"]["total_cost"] == journeys[0]["total_cost"]
 
 
 def test_cities_list(client):
